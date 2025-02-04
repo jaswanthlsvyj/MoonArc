@@ -61,8 +61,8 @@ Open your web browser and navigate to http://localhost:8501.
 ## Project Structure
 ```
 MoonArc/
-├── app.py                  # Main Streamlit application script
-├── MoonArc.keras           # Pre-trained deep learning model
+├── MoonArc.py                  # Main Streamlit application script
+├── MoonArcModel.keras           # Pre-trained deep learning model
 ├── README.md               # Project documentation
 ├── requirements.txt        # List of dependencies
 └── images/                 # Directory for sample images(optional)
