@@ -110,7 +110,7 @@ def main():
     image_bytes = None
 
     if input_method == "Upload Image":
-        uploaded_file = st.file_uploader("Choose a moon image", type=["jpg", "jpeg", "png"])
+        uploaded_file = st.file_uploader("Choose a moon image", type=["jpg", "jpeg", "png", "webp"])
         if uploaded_file:
             image_bytes = uploaded_file.read()
 
