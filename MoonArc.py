@@ -18,7 +18,7 @@ def effnet_preprocess(img):
 def load_model():
     tf.keras.config.enable_unsafe_deserialization()
     model = tf.keras.models.load_model(
-        'MoonArcQwenMax.keras',
+        'MoonArcModel.keras',
         compile=False,
         custom_objects={'effnet_preprocess': effnet_preprocess}
     )
