@@ -7,20 +7,28 @@ import io
 from PIL import Image
 from datetime import datetime
 import pandas as pd
+from tensorflow.keras import layers, Sequential, Model, regularizers
+from tensorflow.keras.applications import ResNet50
+from tensorflow.keras.applications.efficientnet import preprocess_input
 
-# Custom preprocessing function for Lambda layer compatibility
-def effnet_preprocess(img):
-    from tensorflow.keras.applications.efficientnet import preprocess_input
+# -------------------------------
+# Custom preprocessing function for Lambda layer in the model
+# -------------------------------
+@tf.keras.utils.register_keras_serializable()
+def resnet_preprocess(img):
+    """Preprocess the input image using ResNet's preprocess_input function."""
     return preprocess_input(img)
 
-# Load the trained model with compatibility settings
+# -------------------------------
+# Load the trained model with registered custom function
+# -------------------------------
 @st.cache_resource()
 def load_model():
     tf.keras.config.enable_unsafe_deserialization()
     model = tf.keras.models.load_model(
-        'MoonArcModel.keras',
+        'MoonArcModel.keras',  # Make sure this file exists in the working directory
         compile=False,
-        custom_objects={'effnet_preprocess': effnet_preprocess}
+        custom_objects={'resnet_preprocess': resnet_preprocess}
     )
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001),
@@ -29,8 +37,11 @@ def load_model():
     )
     return model
 
+# -------------------------------
+# Image preprocessing: Detection, Cropping, CLAHE enhancement
+# -------------------------------
 def apply_clahe(image):
-    """Apply CLAHE enhancement to moon images"""
+    """Apply CLAHE enhancement to improve moon image contrast."""
     lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
     l_channel, a, b = cv2.split(lab)
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
@@ -39,13 +50,13 @@ def apply_clahe(image):
     return cv2.cvtColor(enhanced_lab, cv2.COLOR_LAB2BGR)
 
 def preprocess_image(image_bytes):
-    """Full preprocessing pipeline including detection, cropping and CLAHE"""
+    """Full image preprocessing pipeline including moon detection, cropping, and enhancement."""
     nparr = np.frombuffer(image_bytes, np.uint8)
     image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     if image is None:
         return None, None, False
 
-    # Moon detection pipeline
+    # Convert to grayscale and apply thresholding
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     thresh = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
@@ -79,8 +90,11 @@ def preprocess_image(image_bytes):
 
     return processed_image, annotated_image, moon_detected
 
+# -------------------------------
+# Prediction function
+# -------------------------------
 def predict_moon_phase(image_bytes, model):
-    """Classify the moon phase from processed image"""
+    """Classify the moon phase from a processed image."""
     processed_image, annotated_image, moon_detected = preprocess_image(image_bytes)
     if processed_image is None:
         return None, None, False, "Error processing image"
@@ -88,7 +102,7 @@ def predict_moon_phase(image_bytes, model):
     # Resize and prepare for model
     resized = cv2.resize(processed_image, (224, 224))
     img_array = tf.keras.utils.img_to_array(resized)
-    img_array = tf.expand_dims(img_array, 0)
+    img_array = tf.expand_dims(img_array, 0)  # Expand batch dimension
     
     # Make prediction
     predictions = model.predict(img_array)
@@ -101,6 +115,9 @@ def predict_moon_phase(image_bytes, model):
     
     return predicted_class, annotated_image, moon_detected, confidence
 
+# -------------------------------
+# Streamlit App
+# -------------------------------
 def main():
     st.title("🌖 Moon Phase Classifier")
     model = load_model()
@@ -161,15 +178,6 @@ def main():
                     with open(img_path, "wb") as f:
                         f.write(image_bytes)
                     
-                    # Save feedback to CSV
-                    feedback_data = {
-                        "timestamp": [timestamp],
-                        "image_path": [img_path],
-                        "predicted_class": [predicted_class],
-                        "correct_class": [correct_class],
-                        "confidence": [confidence]
-                    }
-                    pd.DataFrame(feedback_data).to_csv("feedback.csv", mode='a', header=not os.path.exists("feedback.csv"))
                     st.success("Thank you for improving our model!")
 
 if __name__ == "__main__":
